@@ -1,0 +1,15 @@
+
+/*
+so what will be the job of the  worker node
+
+first it should fetch continously job from the queue 
+then it should execute the job 
+then it should update the job status in the redis 
+tehen save the result in dynamo db
+
+*/
+
+
+ 
+
+
