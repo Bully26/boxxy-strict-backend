@@ -1,0 +1,1 @@
+{"status":"success","stdout":"hello","stderr":"","exit_code":0,"signal":null,"runtime_ms":84,"used_firejail":true}
