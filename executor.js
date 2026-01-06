@@ -19,8 +19,8 @@ export async function executeCppFirejail(code, opt = {}) {
     .replace(/\t/g, " ");
 
   const MEM = opt.memory_bytes ?? 256 * 1024 * 1024; // bytes
-  const CPU = opt.cpu_seconds ?? 1;
-  const WALL = opt.wall_ms ?? 2000;
+  const CPU = opt.cpu_seconds ?? 5;
+  const WALL = opt.wall_ms ?? 5000;
   const OUTL = opt.max_output ?? 1 * 1024 * 1024;
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "job-"));

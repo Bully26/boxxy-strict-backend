@@ -23,6 +23,8 @@ save the result to dynamo db
 
 function getJob() {
   /*
+
+   this should be a continous process 
    will get task id 
    input 
    code 
