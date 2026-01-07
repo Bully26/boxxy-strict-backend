@@ -12,7 +12,7 @@ async function toolExists(cmd) {
   });
 }
 
-export async function executeCppFirejail(code, opt = {}) {
+export async function executeCppHardened(code, opt = {}) {
   code = (code ?? "")
     .replace(/\r\n/g, "\n")
     .replace(/\u00A0/g, " ")
@@ -127,4 +127,4 @@ export async function executeCppFirejail(code, opt = {}) {
   };
 }
 
-export default executeCppFirejail;
+export default executeCppHardened;

@@ -1,76 +1,171 @@
+import executeCppHardened from "./executor.js";
+import {
+    SQSClient,
+    ReceiveMessageCommand,
+    DeleteMessageCommand,
+} from "@aws-sdk/client-sqs";
 
-import executeCppHardened from "./executor";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+    DynamoDBDocumentClient,
+    PutCommand,
+    UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+
+// ---------- CONFIG ----------
+const REGION = "ap-south-1";
+const QUEUE_URL =
+    "https://sqs.ap-south-1.amazonaws.com/968626156509/boxxy_queue";
+const TABLE_NAME = "boxxyStorage";
+
+// ---------- CLIENTS ----------
+const sqs = new SQSClient({ region: REGION });
+const ddb = DynamoDBDocumentClient.from(
+    new DynamoDBClient({ region: REGION })
+);
+
+// ---------- UTILS ----------
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
 /*
-What will the worker do?
+ DynamoDB Item Shape
 
-first try to get message from message queue
-update the task id as submitted
-execute the code
-update the task id as completed
-save the result to dynamo db 
-
-
-// ok this will work i guess
-// but we have to make docker file out of it i guess
-
+ {
+   jobId: string,        // partition key
+   status: SUBMITTED | COMPLETED | FAILED
+   code: string,
+   result: string,
+   createdAt: ISOString,
+   updatedAt: ISOString
+ }
 */
 
+// ---------- DB FUNCTIONS ----------
 
-// there will a infinte for loop which runs as worker
-// its run a function continously
-
-
-
-function getJob() {
-  /*
-
-   this should be a continous process 
-   will get task id 
-   input 
-   code 
-   language 
-  */
-   // fetch job from message queue
-   // return it 
-
-   return {};
-   
-   
-}
-function updateJobStatus(id, status) {
-    
+// create job only once (idempotent)
+async function createJob(job) {
+    console.log("Creating job:", job);
+    await ddb.send(
+        new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                id: job.id,
+                status: "SUBMITTED",
+                code: job.code,
+                createdAt: new Date().toISOString(),
+            },
+            ConditionExpression: "attribute_not_exists(jobId)",
+        })
+    );
 }
 
+// update job status + result
+async function updateJob(jobId, status, result = null) {
+    const updateExpr = result
+        ? "SET #s = :s, #r = :r, updatedAt = :u"
+        : "SET #s = :s, updatedAt = :u";
 
-function saveResultToDynamoDB(id, result) {
-    
-}   
+    const values = result
+        ? {
+            ":s": status,
+            ":r": result,
+            ":u": new Date().toISOString(),
+        }
+        : {
+            ":s": status,
+            ":u": new Date().toISOString(),
+        };
 
+    await ddb.send(
+        new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { id: jobId },
+            UpdateExpression: updateExpr,
+            ExpressionAttributeNames: {
+                "#s": "status",
+                "#r": "result",
+            },
+            ExpressionAttributeValues: values,
+        })
+    );
+}
 
-function worker() {
-   
-    // select job from message queue execute it and update the status 
-    
-    const job = getJob();
-    if(!job)
-    {
-        sleep(1000);
-        return;
+// ---------- CONSUMER ----------
+async function startConsumer() {
+    console.log("SQS consumer started...");
+
+    while (true) {
+        try {
+            const response = await sqs.send(
+                new ReceiveMessageCommand({
+                    QueueUrl: QUEUE_URL,
+                    MaxNumberOfMessages: 1,
+                    WaitTimeSeconds: 8,
+                    VisibilityTimeout: 60,
+                })
+            );
+
+            if (!response.Messages || response.Messages.length === 0) {
+                await sleep(1000);
+                continue;
+            }
+
+            for (const msg of response.Messages) {
+                const receiptHandle = msg.ReceiptHandle;
+
+                try {
+                    const job = JSON.parse(msg.Body);
+                    console.log("Processing job:", job.id);
+
+                    // 1️⃣ create job (idempotent)
+                    try {
+                        await createJob(job);
+                    } catch (e) {
+                        if (e.name === "ConditionalCheckFailedException") {
+                            console.log("Duplicate job detected, skipping:", job.id);
+                            await sqs.send(
+                                new DeleteMessageCommand({
+                                    QueueUrl: QUEUE_URL,
+                                    ReceiptHandle: receiptHandle,
+                                })
+                            );
+                            continue;
+                        }
+                        throw e;
+                    }
+
+                    // 2️⃣ execute code
+                    const result = await executeCppHardened(job.code);
+
+                    // 3️⃣ mark completed
+                    await updateJob(job.id, "COMPLETED", result);
+
+                    // 4️⃣ delete SQS message
+                    await sqs.send(
+                        new DeleteMessageCommand({
+                            QueueUrl: QUEUE_URL,
+                            ReceiptHandle: receiptHandle,
+                        })
+                    );
+
+                    console.log("Job completed:", job.id);
+                } catch (err) {
+                    console.error("Job failed:", err);
+
+                    if (msg?.Body) {
+                        const job = JSON.parse(msg.Body);
+                        await updateJob(job.id, "FAILED", String(err));
+                    }
+
+                    // DO NOT delete → SQS will retry
+                }
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+            await sleep(5000);
+        }
     }
-    // update the job status
-    const updateJob = updateJobStatus(job.id, "submitted");
-
-    // now execute the code
-   
-    const result = executeCppHardened(job.code, job.language);
-
-    // update the job status
-
-    const completedJob = updateJobStatus(job.id, result);
-
-    // save the result to dynamo db
-    saveResultToDynamoDB(job.id, result);
-
-    return ;
 }
-// now its done we have to make docker file for this code 
+
+// ---------- START ----------
+startConsumer();
