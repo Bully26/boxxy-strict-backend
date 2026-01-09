@@ -59,6 +59,20 @@ async function createJob(job) {
     );
 }
 
+async function redisSubmitted() {
+   
+    // the job has been submitted now is in processing 
+}
+
+async function redisPending() {
+    // the job is in pending state 
+}
+
+async function redisCompleted() {
+    // the job is completed 
+    
+}
+
 // update job status + result
 async function updateJob(jobId, status, result = null) {
     const updateExpr = result
@@ -115,6 +129,7 @@ async function startConsumer() {
 
                 try {
                     const job = JSON.parse(msg.Body);
+                    redisSubmitted();
                     console.log("Processing job:", job.id);
 
                     // 1️⃣ create job (idempotent)
@@ -135,9 +150,11 @@ async function startConsumer() {
                     }
 
                     // 2️⃣ execute code
-                    const result = await executeCppHardened(job.code);
+                    redisPending();
+                    const result = await executeCppHardened(job.code, job.input);
 
                     // 3️⃣ mark completed
+                    redisCompleted();
                     await updateJob(job.id, "COMPLETED", result);
 
                     // 4️⃣ delete SQS message

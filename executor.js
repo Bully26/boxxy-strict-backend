@@ -12,7 +12,7 @@ async function toolExists(cmd) {
   });
 }
 
-export async function executeCppHardened(code, opt = {}) {
+export async function executeCppHardened(code, input = "", opt = {}) {
   code = (code ?? "")
     .replace(/\r\n/g, "\n")
     .replace(/\u00A0/g, " ")
@@ -65,7 +65,6 @@ export async function executeCppHardened(code, opt = {}) {
         ? ["/usr/bin/prlimit", `--as=${MEM}`, `--cpu=${CPU}`, "--", "./exec"]
         : ["./exec"])
     ];
-
   } else if (havePrlimit) {
     cmd = "prlimit";
     args = [`--as=${MEM}`, `--cpu=${CPU}`, "--", bin];
@@ -74,7 +73,16 @@ export async function executeCppHardened(code, opt = {}) {
     args = [];
   }
 
-  const child = spawn(cmd, args, { cwd: workDir });
+  const child = spawn(cmd, args, {
+    cwd: workDir,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  // ---- SEND STDIN ----
+  if (input && typeof input === "string") {
+    child.stdin.write(input);
+  }
+  child.stdin.end();
 
   let out = [], err = [];
   let used = 0;
