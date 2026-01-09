@@ -4,6 +4,14 @@ const app = express();
 
 // first configure fire jail
 
+
+/*
+
+FOR TESTING ONLY 
+NOT NEEDED IN PRODUCTION
+
+
+*/
 app.use(express.json());
 
 app.listen(3000, "0.0.0.0", () => {
