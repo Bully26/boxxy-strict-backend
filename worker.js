@@ -12,17 +12,26 @@ import {
     UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
+import { createClient } from "redis";
+
+
+
 // ---------- CONFIG ----------
 const REGION = "ap-south-1";
 const QUEUE_URL =
     "https://sqs.ap-south-1.amazonaws.com/968626156509/boxxy_queue";
 const TABLE_NAME = "boxxyStorage";
 
+// ---------- REDIS CONFIG ----------
+const REDIS_URL = "redis://127.0.0.1:6379";
+
 // ---------- CLIENTS ----------
 const sqs = new SQSClient({ region: REGION });
 const ddb = DynamoDBDocumentClient.from(
     new DynamoDBClient({ region: REGION })
 );
+
+const redis = createClient({ url: REDIS_URL });
 
 // ---------- UTILS ----------
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -39,6 +48,10 @@ const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
    updatedAt: ISOString
  }
 */
+
+// ---------- REDIS INIT ----------
+redis.on("error", (err) => console.error("Redis error:", err));
+await redis.connect();
 
 // ---------- DB FUNCTIONS ----------
 
@@ -59,18 +72,22 @@ async function createJob(job) {
     );
 }
 
-async function redisSubmitted() {
-   
-    // the job has been submitted now is in processing 
+async function redisSubmitted(jobId) {
+    // the job has been submitted now is in processing
+    await redis.set(`job:${jobId}`, "SUBMITTED");
+
+
 }
 
-async function redisPending() {
-    // the job is in pending state 
+async function redisPending(jobId) {
+    // the job is in pending state
+    await redis.set(`job:${jobId}`, "PENDING");
 }
 
-async function redisCompleted() {
-    // the job is completed 
-    
+async function redisCompleted(jobId) {
+    // the job is completed
+    await redis.set(`job:${jobId}`, "COMPLETED");
+    console.log("redis working ")
 }
 
 // update job status + result
@@ -129,10 +146,11 @@ async function startConsumer() {
 
                 try {
                     const job = JSON.parse(msg.Body);
-                    redisSubmitted();
+
+                    await redisSubmitted(job.id);
                     console.log("Processing job:", job.id);
 
-                    // 1️⃣ create job (idempotent)
+                    //  create job (idempotent)
                     try {
                         await createJob(job);
                     } catch (e) {
@@ -149,15 +167,15 @@ async function startConsumer() {
                         throw e;
                     }
 
-                    // 2️⃣ execute code
-                    redisPending();
+                    // execute code
+                    await redisPending(job.id);
                     const result = await executeCppHardened(job.code, job.input);
 
-                    // 3️⃣ mark completed
-                    redisCompleted();
+                    //  mark completed
+                    await redisCompleted(job.id);
                     await updateJob(job.id, "COMPLETED", result);
 
-                    // 4️⃣ delete SQS message
+                    // delete SQS message
                     await sqs.send(
                         new DeleteMessageCommand({
                             QueueUrl: QUEUE_URL,
@@ -171,6 +189,8 @@ async function startConsumer() {
 
                     if (msg?.Body) {
                         const job = JSON.parse(msg.Body);
+
+                        await redis.set(`job:${job.id}`, "FAILED");
                         await updateJob(job.id, "FAILED", String(err));
                     }
 
