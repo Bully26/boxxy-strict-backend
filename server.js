@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { executeCppFirejail } from "./executor.js";
 const app = express();
@@ -14,8 +15,10 @@ NOT NEEDED IN PRODUCTION
 */
 app.use(express.json());
 
-app.listen(3000, "0.0.0.0", () => {
-    console.log("Server started on port 3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server started on port ${PORT}`);
 });
 
 

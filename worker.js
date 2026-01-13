@@ -1,3 +1,4 @@
+import "dotenv/config";
 import executeCppHardened from "./executor.js";
 import {
     SQSClient,
@@ -17,13 +18,13 @@ import { createClient } from "redis";
 
 
 // ---------- CONFIG ----------
-const REGION = "ap-south-1";
-const QUEUE_URL =
-    "https://sqs.ap-south-1.amazonaws.com/968626156509/boxxy_queue";
-const TABLE_NAME = "boxxyStorage";
+// ---------- CONFIG ----------
+const REGION = process.env.AWS_REGION;
+const QUEUE_URL = process.env.SQS_QUEUE_URL;
+const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME;
 
 // ---------- REDIS CONFIG ----------
-const REDIS_URL = "redis://127.0.0.1:6379";
+const REDIS_URL = process.env.REDIS_URL;
 
 // ---------- CLIENTS ----------
 const sqs = new SQSClient({ region: REGION });
