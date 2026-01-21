@@ -1,0 +1,100 @@
+{
+  status: 'success',
+  stdout: '',
+  stderr: '',
+  exit_code: 0,
+  signal: null,
+  runtime_ms: 315,
+  used_firejail: true,
+  name: 'deep recursion'
+}
+{
+  status: 'output_limit_exceeded',
+  stdout: 'X\n' +
+    
+    'X\n'... 1038576 more characters,
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 299,
+  used_firejail: true,
+  name: 'cpu + output'
+}
+{
+  status: 'output_limit_exceeded',
+  stdout: 'SPAM\n' +
+ 
+ 
+    
+    'SPAM\n'... 1038576 more characters,
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 380,
+  used_firejail: true,
+  name: 'infinite output'
+}
+{
+  status: 'runtime_error',
+  stdout: '',
+  stderr: "terminate called after throwing an instance of 'std::bad_alloc'\n" +
+    '  what():  std::bad_alloc\n',
+  exit_code: 134,
+  signal: null,
+  runtime_ms: 878,
+  used_firejail: true,
+  name: 'infinite memory'
+}
+{
+  status: 'output_limit_exceeded',
+  stdout: '0\n' +
+    '1\n' +
+    <2 to 2220 was written here>
+    '2221\n'... 1038576 more characters,
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 285,
+  used_firejail: true,
+  name: 'too much output (finite)'
+}
+{
+  status: 'timeout',
+  stdout: '',
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 11697,
+  used_firejail: true,
+  name: 'fork bomb (sandbox only)'
+}
+{
+  status: 'timeout',
+  stdout: '',
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 5001,
+  used_firejail: true,
+  name: 'infinite recursion'
+}
+{
+  status: 'timeout',
+  stdout: '',
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 5003,
+  used_firejail: true,
+  name: 'infinite loop'
+}
+{
+  status: 'timeout',
+  stdout: '',
+  stderr: '',
+  exit_code: null,
+  signal: 'SIGKILL',
+  runtime_ms: 5003,
+  used_firejail: true,
+  name: 'cpu burn'
+}
